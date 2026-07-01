@@ -195,7 +195,8 @@ export type GenerateNewsScriptResponse = {
 };
 
 export type GenerateImagesRequest = {
-  scenes: NewsScene[];
+  scenes?: NewsScene[];
+  script?: Pick<NewsShortsScript, "scenes">;
 };
 
 export type GenerateImagesResponse = {
@@ -203,13 +204,15 @@ export type GenerateImagesResponse = {
 };
 
 export type GenerateVoiceRequest = {
-  narration: string;
+  narration?: string;
   scenes?: NewsScene[];
   voice?: string;
+  script?: Pick<NewsShortsScript, "narration" | "scenes">;
 };
 
 export type GenerateVoiceResponse = {
-  audio: GeneratedVoice;
+  voice: GeneratedVoice;
+  audio?: GeneratedVoice;
 };
 
 export type RenderVideoRequest = {

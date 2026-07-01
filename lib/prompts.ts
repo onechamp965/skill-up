@@ -113,7 +113,15 @@ export function buildNewsScriptPrompt(
 }
 
 export function normalizeNewsImagePrompt(scene: NewsScene) {
-  const prompt = `${scene.image_prompt}. ${NEWS_IMAGE_PROMPT_RULE}`;
+  const rawPrompt = [
+    scene.image_prompt,
+    !scene.image_prompt?.trim() ? scene.visual_description : "",
+    !scene.image_prompt?.trim() ? scene.scene_title : "",
+    !scene.image_prompt?.trim() ? scene.narration : ""
+  ]
+    .filter(Boolean)
+    .join(". ");
+  const prompt = `${rawPrompt || `뉴스 쇼츠 장면 ${scene.scene_number}`}. ${NEWS_IMAGE_PROMPT_RULE}`;
   return prompt
     .replace(/\blogo\b/gi, "generic symbol")
     .replace(/\bwatermark\b/gi, "clean frame")

@@ -3,6 +3,7 @@
 .vercel
 node_modules
 .next
+.npm-cache
 out
 dist
 coverage

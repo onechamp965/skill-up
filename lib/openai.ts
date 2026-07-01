@@ -98,6 +98,11 @@ export async function generateSpeechWithOpenAI(narration: string, voice = "alloy
     throw new Error("OPENAI_API_KEY가 설정되지 않아 음성 생성을 건너뜁니다.");
   }
 
+  const input = narration.trim();
+  if (!input) {
+    throw new Error("TTS 입력 텍스트가 비어 있습니다.");
+  }
+
   const model = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
   const response = await fetch("https://api.openai.com/v1/audio/speech", {
     method: "POST",
@@ -108,8 +113,8 @@ export async function generateSpeechWithOpenAI(narration: string, voice = "alloy
     body: JSON.stringify({
       model,
       voice,
-      input: narration,
-      format: "mp3"
+      input,
+      response_format: "mp3"
     })
   });
 
@@ -119,8 +124,7 @@ export async function generateSpeechWithOpenAI(narration: string, voice = "alloy
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  return `data:audio/mpeg;base64,${base64}`;
+  return Buffer.from(arrayBuffer);
 }
 
 function formatOpenAIError(message: string, fallback: string) {

@@ -201,14 +201,22 @@ export default function Home() {
     setLoading((prev) => ({ ...prev, images: true }));
     setState((prev) => ({ ...prev, step: "generating_images" }));
     try {
-      const response = await fetch("/api/images", {
+      const response = await fetch("/api/news/images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenes: state.script.scenes })
+        body: JSON.stringify({ script: state.script, scenes: state.script.scenes })
       });
       const payload = (await response.json()) as GenerateImagesResponse & { error?: string };
       if (!response.ok) throw new Error(payload.error || "이미지 생성 실패");
+      const failedImages = payload.images.filter((image) => image.status === "failed");
       setState((prev) => ({ ...prev, images: payload.images, step: "images_ready" }));
+      if (failedImages.length) {
+        setError(
+          `${failedImages.length}개 장면 이미지 생성에 실패했습니다: ${failedImages
+            .map((image) => `scene ${image.scene_number}`)
+            .join(", ")}`
+        );
+      }
     } catch (event) {
       setError(event instanceof Error ? event.message : "이미지 생성 실패");
       setState((prev) => ({ ...prev, step: "error" }));
@@ -223,14 +231,19 @@ export default function Home() {
     setLoading((prev) => ({ ...prev, voice: true }));
     setState((prev) => ({ ...prev, step: "generating_voice" }));
     try {
-      const response = await fetch("/api/voice", {
+      const response = await fetch("/api/news/voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ narration: state.script.narration, scenes: state.script.scenes })
+        body: JSON.stringify({ script: state.script, narration: state.script.narration, scenes: state.script.scenes })
       });
       const payload = (await response.json()) as GenerateVoiceResponse & { error?: string };
-      if (!response.ok) throw new Error(payload.error || "음성 생성 실패");
-      setState((prev) => ({ ...prev, voice: payload.audio, step: payload.audio.status === "success" ? "voice_ready" : "script_ready" }));
+      const voice = payload.voice || payload.audio;
+      if (!response.ok) throw new Error(voice?.error || payload.error || "음성 생성 실패");
+      if (!voice) throw new Error("음성 생성 응답이 비어 있습니다.");
+      setState((prev) => ({ ...prev, voice, step: voice.status === "success" ? "voice_ready" : "script_ready" }));
+      if (voice.status === "failed") {
+        setError(voice.error || "음성 생성 실패");
+      }
     } catch (event) {
       setError(event instanceof Error ? event.message : "음성 생성 실패");
       setState((prev) => ({ ...prev, step: "error" }));
