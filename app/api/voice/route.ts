@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-import type { GenerateVoiceRequest, GenerateVoiceResponse } from "@/types/news";
-import { generateSpeechWithOpenAI } from "@/lib/openai";
+import type { GenerateVoiceRequest, GenerateVoiceResponse, GeneratedVoiceSegment } from "@/types/news";
+import { generateSpeechWithLocalModel } from "@/lib/localModels";
 
 export const runtime = "nodejs";
 
@@ -21,17 +19,45 @@ export async function POST(request: Request) {
       return NextResponse.json(response, { status: 400 });
     }
 
-    console.log("[TTS] input length:", text.length);
-    const shouldPersistToPublic = await canPersistToPublic();
+    if (body.scenes?.length) {
+      const segments: GeneratedVoiceSegment[] = [];
+
+      for (const scene of body.scenes) {
+        try {
+          const audio_url = await generateSpeechWithLocalModel(scene.narration || scene.subtitle, body.voice);
+          segments.push({ scene_number: scene.scene_number, audio_url, status: "success" });
+        } catch (error) {
+          segments.push({
+            scene_number: scene.scene_number,
+            status: "failed",
+            error: error instanceof Error ? error.message : "씬 음성 생성에 실패했습니다."
+          });
+        }
+      }
+
+      const firstAudio = segments.find((segment) => segment.status === "success" && segment.audio_url)?.audio_url;
+      const failedCount = segments.filter((segment) => segment.status === "failed").length;
+      const firstError = segments.find((segment) => segment.error)?.error;
+      const response: GenerateVoiceResponse = {
+        voice: {
+          audio_url: firstAudio,
+          segments,
+          status: firstAudio ? "success" : "failed",
+          error: failedCount
+            ? firstAudio
+              ? `${failedCount}개 씬의 음성 생성에 실패했습니다. 성공한 씬 음성만 영상에 포함됩니다.`
+              : firstError || "모든 씬의 음성 생성에 실패했습니다."
+            : undefined
+        }
+      };
+      return NextResponse.json(response);
+    }
 
     try {
-      const audioBuffer = await generateSpeechWithOpenAI(text, body.voice || "alloy");
-      const audio_url = shouldPersistToPublic ? await saveAudioFile(audioBuffer) : toAudioDataUrl(audioBuffer);
-      console.log("[TTS] output:", audio_url);
+      const audio_url = await generateSpeechWithLocalModel(text, body.voice);
       const response: GenerateVoiceResponse = { voice: { audio_url, status: "success" } };
       return NextResponse.json(response);
     } catch (error) {
-      console.error("[TTS] failed:", error);
       const response: GenerateVoiceResponse = {
         voice: {
           status: "failed",
@@ -55,31 +81,7 @@ function getTtsInputText(body: GenerateVoiceRequest) {
   const scenes = body.script?.scenes?.length ? body.script.scenes : body.scenes || [];
   return scenes
     .map((scene) => scene.narration)
-    .filter((text): text is string => Boolean(text?.trim()))
+    .filter((value): value is string => Boolean(value?.trim()))
     .join("\n")
     .trim();
-}
-
-function getGeneratedAudioDir() {
-  return path.join(process.cwd(), "public", "generated", "audio");
-}
-
-async function canPersistToPublic() {
-  try {
-    await mkdir(getGeneratedAudioDir(), { recursive: true });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function saveAudioFile(audioBuffer: Buffer) {
-  const fileName = `voice-${Date.now()}.mp3`;
-  const filePath = path.join(getGeneratedAudioDir(), fileName);
-  await writeFile(filePath, audioBuffer);
-  return `/generated/audio/${fileName}`;
-}
-
-function toAudioDataUrl(audioBuffer: Buffer) {
-  return `data:audio/mpeg;base64,${audioBuffer.toString("base64")}`;
 }

@@ -3,7 +3,7 @@ import "@/app/globals.css";
 
 export const metadata: Metadata = {
   title: "News Shorts Studio",
-  description: "뉴스 하나로 숏츠 요약 영상까지 만드는 출처 기반 제작 스튜디오"
+  description: "OpenAI News의 편집적 감도를 참고해 다시 설계한 AI 뉴스 서비스"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

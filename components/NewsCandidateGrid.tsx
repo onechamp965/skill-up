@@ -5,17 +5,30 @@ import { NewsCandidateCard } from "@/components/NewsCandidateCard";
 type NewsCandidateGridProps = {
   candidates: NewsCandidate[];
   selectedId?: string;
+  loading?: boolean;
   onSelect: (candidate: NewsCandidate) => void;
 };
 
-export function NewsCandidateGrid({ candidates, selectedId, onSelect }: NewsCandidateGridProps) {
+export function NewsCandidateGrid({ candidates, selectedId, loading, onSelect }: NewsCandidateGridProps) {
   return (
     <section className="section">
       <div className="sectionHeader">
         <p className="eyebrow">News Candidates</p>
         <h2>뉴스 후보</h2>
       </div>
-      {candidates.length ? (
+      {loading ? (
+        <div className="candidateGrid">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <article key={index} className="candidateCard skeletonCard" aria-hidden="true">
+              <div className="skeletonLine skeletonPill" />
+              <div className="skeletonLine skeletonTitle" />
+              <div className="skeletonLine skeletonBody" />
+              <div className="skeletonLine skeletonBody short" />
+              <div className="skeletonLine skeletonFooter" />
+            </article>
+          ))}
+        </div>
+      ) : candidates.length ? (
         <div className="candidateGrid">
           {candidates.map((candidate) => (
             <NewsCandidateCard

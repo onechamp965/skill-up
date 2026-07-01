@@ -8,3 +8,6 @@ out
 dist
 coverage
 *.log
+__pycache__/
+public/static/output/uploads/*
+!public/static/output/uploads/.gitkeep

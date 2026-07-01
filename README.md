@@ -9,7 +9,8 @@
 - 핵심 브리프 생성
 - 사실 기반 숏츠 스크립트와 씬 타임라인 생성
 - 뉴스용 안전 이미지 프롬프트 적용
-- OpenAI 이미지 생성 및 TTS 연결
+- 로컬 Hugging Face 이미지 생성 및 TTS 연결
+- 이미지 생성 실패 시에도 편집용 대체 비주얼을 저장하도록 처리
 - 브라우저 기반 9:16 WebM 영상 생성
 - 제작 패키지 JSON 다운로드
 - YouTube 업로드용 제목, 설명, 태그, 공개 범위, madeForKids 편집
@@ -23,18 +24,79 @@ MVP 우선순위는 직접 텍스트 붙여넣기, 기사 URL, 키워드 검색 
 - URL: 서버에서 기사 HTML을 가져와 제목, 매체, 발행일, 본문을 추출합니다. 사이트 구조에 따라 실패할 수 있으며 이 경우 직접 텍스트 입력을 권장합니다.
 - Keyword: `NEWS_API_KEY`, `NEWS_PROVIDER` adapter를 붙일 수 있게 구조만 준비되어 있습니다. 설정이 없으면 “키워드 기반 뉴스 검색은 아직 설정되지 않았습니다. 기사 URL 또는 뉴스 텍스트를 입력해주세요.” 메시지를 반환합니다.
 
-## OpenAI API 설정
+## 로컬 모델 API 설정
+
+브리프, 스크립트, 이미지, TTS는 모두 FastAPI 로컬 서비스 하나로 연결합니다.
+
+그 서비스가 내부에서 Ollama의 OpenAI 호환 엔드포인트를 호출합니다.
 
 `.env.local`에 다음 값을 설정합니다.
 
 ```env
-OPENAI_API_KEY=
-OPENAI_TEXT_MODEL=gpt-4o-mini
-OPENAI_IMAGE_MODEL=gpt-image-1
-OPENAI_TTS_MODEL=gpt-4o-mini-tts
+LOCAL_MODEL_SERVICE_URL=http://127.0.0.1:8001
+LOCAL_LLM_MODEL=qwen3:8b
+LOCAL_LLM_BACKEND_URL=http://localhost:11434/v1
 ```
 
-키가 없으면 브리프와 스크립트는 보수적 fallback으로 동작하고, 이미지와 음성 생성은 실패 상태를 반환하되 기존 결과는 유지합니다.
+프론트는 `LOCAL_MODEL_SERVICE_URL`만 바라보고, 이미지/TTS/LLM은 모두 이 API 서버로 들어갑니다. 요청이 실패하면 보수적 fallback으로 내려갑니다.
+
+## 로컬 Hugging Face 모델 설정
+
+이미지 생성과 TTS는 OpenAI API를 사용하지 않고 로컬 FastAPI 서비스로 실행합니다.
+
+- TTS: `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`
+- 이미지 Base model: `runwayml/stable-diffusion-v1-5`
+- 이미지 LoRA: `latent-consistency/lcm-lora-sdv1-5`
+- Scheduler: `LCMScheduler`
+- 이미지 기본값: `512x512`, `num_inference_steps=4`, `guidance_scale=1.5`
+
+Python 환경을 준비합니다.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-local-models.txt
+```
+
+이미지 서비스는 `peft>=0.17.0`이 필요하고, `torchao`는 설치하지 않는 쪽이 안전합니다. 예전 환경에 남아 있으면 아래처럼 정리해주세요.
+
+```bash
+pip uninstall -y torchao
+pip install -U "peft>=0.17.0"
+```
+
+macOS에서는 `qwen-tts`가 내부적으로 `sox`를 찾을 수 있어야 하니, 시스템에 없다면 `brew install sox`도 같이 해주세요.
+
+Apple Silicon에서는 PyTorch MPS를 우선 사용하고, 사용할 수 없거나 TTS 로드가 실패하면 CPU로 fallback합니다. 첫 실행 시 Hugging Face 모델을 내려받기 때문에 시간이 걸릴 수 있습니다.
+
+`.env.local`에 로컬 모델 서비스 주소를 설정합니다.
+
+```env
+LOCAL_MODEL_SERVICE_URL=http://127.0.0.1:8001
+```
+
+`LOCAL_LLM_BACKEND_URL`는 로컬 모델 서비스가 Ollama를 부르는 내부 주소입니다. 기본값은 `http://localhost:11434/v1`입니다.
+
+로컬 모델 서비스를 실행합니다.
+
+```bash
+source .venv/bin/activate
+npm run models:dev
+```
+
+서비스 상태 확인:
+
+```bash
+curl http://127.0.0.1:8001/health
+```
+
+LLM 프록시 확인:
+
+```bash
+curl http://127.0.0.1:8001/chat
+```
+
+생성된 이미지와 음성 파일은 `public/static/output/uploads`에 UUID 파일명으로 저장되며, API 응답에는 `/static/output/uploads/...` URL이 반환됩니다. TTS 출력은 `.wav`, 이미지 출력은 `.png`입니다.
 
 ## Google OAuth 설정
 
@@ -69,10 +131,9 @@ Google Cloud 설정 절차:
 ### Vercel 환경변수
 
 ```env
-OPENAI_API_KEY=
-OPENAI_TEXT_MODEL=
-OPENAI_IMAGE_MODEL=
-OPENAI_TTS_MODEL=
+LOCAL_MODEL_SERVICE_URL=
+LOCAL_LLM_MODEL=
+LOCAL_LLM_BACKEND_URL=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=
@@ -88,12 +149,31 @@ npm install
 npm run dev
 ```
 
+이미지와 음성 생성을 사용하려면 별도 터미널에서 로컬 모델 서비스도 실행해야 합니다.
+
+```bash
+source .venv/bin/activate
+npm run models:dev
+```
+
 검증:
 
 ```bash
 npm run lint
 npm run build
 ```
+
+## 외부 서버 노출
+
+말씀하신 `nzrock`이 `ngrok`을 뜻한 것이라면, 로컬 모델 서비스는 그대로 두고 `ngrok`으로 8001 포트를 노출하면 됩니다.
+
+예:
+
+```bash
+ngrok http 8001
+```
+
+그 뒤 생성된 공개 URL을 `LOCAL_MODEL_SERVICE_URL`에 넣으면, 프론트가 원격에서도 같은 API 서버를 사용할 수 있습니다.
 
 ## 영상 렌더링
 

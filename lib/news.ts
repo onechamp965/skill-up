@@ -8,7 +8,7 @@ import type {
   TargetAudience,
   VideoDuration
 } from "@/types/news";
-import { NEWS_IMAGE_PROMPT_RULE } from "@/lib/prompts";
+import { buildRealisticNewsImagePrompt } from "@/lib/prompts";
 
 const KEYWORD_SEARCH_NOT_CONFIGURED =
   "키워드 기반 뉴스 검색은 아직 설정되지 않았습니다. 기사 URL 또는 뉴스 텍스트를 입력해주세요.";
@@ -187,14 +187,20 @@ export function fallbackScript(
 
   const scenes = Array.from({ length: sceneCount }, (_, index) => {
     const point = basePoints[index % basePoints.length];
+    const visual_description = buildVisualDescription(index, brief.title);
     return {
       scene_number: index + 1,
       duration_sec: index === sceneCount - 1 ? duration - durationPerScene * (sceneCount - 1) : durationPerScene,
       scene_title: index === 0 ? "핵심 훅" : `핵심 포인트 ${index}`,
-      visual_description: buildVisualDescription(index, brief.title),
+      visual_description,
       narration: index === 0 ? `${brief.title}. 핵심은 이겁니다. ${point}` : point,
       subtitle: summarizeText(index === 0 ? "핵심만 짧게 정리합니다" : point, 42),
-      image_prompt: `${buildVisualDescription(index, brief.title)}, ${NEWS_IMAGE_PROMPT_RULE}`,
+      image_prompt: buildRealisticNewsImagePrompt({
+        image_prompt: visual_description,
+        visual_description,
+        subtitle: index === 0 ? "핵심만 짧게 정리합니다" : summarizeText(point, 42),
+        scene_title: index === 0 ? "핵심 훅" : `핵심 포인트 ${index}`
+      }),
       source_reference: brief.source_ids[0]
     };
   });
@@ -231,11 +237,11 @@ function getSceneCount(duration: VideoDuration) {
 
 function buildVisualDescription(index: number, title: string) {
   const visuals = [
-    `symbolic breaking news desk with smartphone and neutral abstract headlines inspired by ${title}`,
-    "clean infographic composition with abstract chart lines and city background",
-    "editorial visual of documents, microphones, and neutral public briefing room",
-    "vertical news explainer visual with map shapes and soft studio lighting",
-    "close-up of hands checking news on a smartphone, no readable text"
+    `newsroom desk with a phone, laptop, and printed notes about ${title}`,
+    "person checking a news app on a phone during a commute",
+    "press briefing room with microphones and cameras",
+    "close-up of documents, calendar pages, and a laptop",
+    "hands scrolling a phone on a train"
   ];
   return visuals[index % visuals.length];
 }

@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { ExportPanel } from "@/components/ExportPanel";
-import { Header } from "@/components/Header";
-import { HeroSection } from "@/components/HeroSection";
 import { NewsBriefPanel } from "@/components/NewsBriefPanel";
 import { NewsCandidateGrid } from "@/components/NewsCandidateGrid";
 import { NewsInputPanel } from "@/components/NewsInputPanel";
@@ -48,17 +46,7 @@ const initialState: NewsStudioState = {
 };
 
 export default function Home() {
-  const [state, setState] = useState<NewsStudioState>(() => {
-    if (typeof window === "undefined") return initialState;
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return initialState;
-    try {
-      return { ...initialState, ...(JSON.parse(saved) as Partial<NewsStudioState>) };
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return initialState;
-    }
-  });
+  const [state, setState] = useState<NewsStudioState>(initialState);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState({
     collect: false,
@@ -68,10 +56,7 @@ export default function Home() {
     voice: false,
     video: false
   });
-  const [youtubeConnected, setYoutubeConnected] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).get("youtube") === "connected";
-  });
+  const [youtubeConnected, setYoutubeConnected] = useState(false);
 
   const selectedSources = useMemo(() => {
     if (!state.selectedSourceId) return state.sources;
@@ -79,12 +64,16 @@ export default function Home() {
   }, [state.selectedSourceId, state.sources]);
 
   useEffect(() => {
-    const handler = () => {
-      setState((prev) => ({ ...prev, mode: "text", text: demoText, category: "AI" }));
-      window.location.hash = "news-input";
-    };
-    window.addEventListener("load-demo-news", handler);
-    return () => window.removeEventListener("load-demo-news", handler);
+    queueMicrotask(() => {
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          setState({ ...initialState, ...(JSON.parse(saved) as Partial<NewsStudioState>) });
+        }
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -96,12 +85,36 @@ export default function Home() {
   }, [state]);
 
   useEffect(() => {
+    queueMicrotask(() => {
+      const params = new URLSearchParams(window.location.search);
+      setYoutubeConnected(params.get("youtube") === "connected");
+    });
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      setState((prev) => ({ ...prev, mode: "text", text: demoText, category: "AI" }));
+      window.location.hash = "studio";
+    };
+    window.addEventListener("load-demo-news", handler);
+    return () => window.removeEventListener("load-demo-news", handler);
+  }, []);
+
+  useEffect(() => {
     fetch("/api/auth/google/status")
       .then((response) => response.json())
       .then((payload: { connected?: boolean }) => {
         if (payload.connected) setYoutubeConnected(true);
       })
       .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("news-shorts-bookmarks", JSON.stringify([]));
+    } catch {
+      // ignore storage quota issues.
+    }
   }, []);
 
   async function collectNews() {
@@ -285,28 +298,132 @@ export default function Home() {
   }
 
   return (
-    <main>
-      <Header youtubeConnected={youtubeConnected} />
-      <HeroSection />
-      <div className="workspace">
+    <main className="pageRoot">
+      <header className="siteHeader">
+        <div className="brandLockup">
+          <a className="brandMark" href="#top" aria-label="News Shorts Studio home">
+            N
+          </a>
+          <div>
+            <p className="brandEyebrow">Editorial AI workflow</p>
+            <strong>News Shorts Studio</strong>
+          </div>
+        </div>
+
+        <nav className="siteNav" aria-label="Primary">
+          <a href="#studio">Studio</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#export">Export</a>
+        </nav>
+
+        <div className="headerActions">
+          <a className="ghostButton" href="/api/auth/google/start">
+            {youtubeConnected ? "Google connected" : "Sign in"}
+          </a>
+        </div>
+      </header>
+
+      <section className="heroSection" id="top">
+        <div className="heroText">
+          <p className="eyebrow">Modern. Editorial. AI native.</p>
+          <h1>뉴스를 읽는 화면은 덜고, 숏츠를 만드는 화면만 남겼습니다</h1>
+          <p className="heroCopy">
+            뉴스 카드와 편집형 섹션은 지우고, 기사 입력부터 브리프, 스크립트, 이미지, TTS, 영상까지 이어지는
+            제작 흐름만 남겼습니다. 지금부터는 숏츠를 빠르게 만드는 일에 집중합니다.
+          </p>
+          <div className="heroActions">
+            <a className="primaryLink" href="#studio">
+              Studio 열기
+            </a>
+            <button
+              type="button"
+              className="secondaryButton"
+              onClick={() => window.dispatchEvent(new CustomEvent("load-demo-news"))}
+            >
+              예시 불러오기
+            </button>
+          </div>
+          <div className="heroMeta" aria-label="Key highlights">
+            <div>
+              <strong>News input</strong>
+              <span>URL, text, keyword</span>
+            </div>
+            <div>
+              <strong>Local AI</strong>
+              <span>LLM, TTS, images</span>
+            </div>
+            <div>
+              <strong>Delivery</strong>
+              <span>video and upload</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="heroMedia">
+          <div className="workflowPreview">
+            <div className="workflowPreviewHeader">
+              <span>Studio status</span>
+              <strong>{state.step}</strong>
+            </div>
+            <div className="workflowStatGrid">
+              <div>
+                <b>{state.sources.length}</b>
+                <span>sources</span>
+              </div>
+              <div>
+                <b>{state.candidates.length}</b>
+                <span>candidates</span>
+              </div>
+              <div>
+                <b>{state.script?.scenes.length || 0}</b>
+                <span>scenes</span>
+              </div>
+              <div>
+                <b>{state.images.length}</b>
+                <span>images</span>
+              </div>
+            </div>
+            <div className="workflowPreviewNote">
+              <span>Current focus</span>
+              <strong>{state.script?.title || "뉴스 입력 후 브리프를 생성하세요"}</strong>
+              <p>{state.brief?.one_line_summary || "기사 URL 또는 뉴스 텍스트를 넣으면 바로 시작됩니다."}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="sectionBand studioSection" id="studio">
+        <div className="sectionBandHeader">
+          <div>
+            <p className="eyebrow">Studio</p>
+            <h2>숏츠 제작 흐름</h2>
+          </div>
+          <p className="sectionLead">
+            입력, 브리프, 스크립트, 씬 이미지, TTS, 비디오 렌더링을 한 화면에서 순서대로 처리합니다.
+          </p>
+        </div>
         <ProgressStepper current={state.step} />
         <ErrorMessage message={error} />
-        <NewsInputPanel
-          mode={state.mode}
-          keyword={state.keyword}
-          url={state.url}
-          text={state.text}
-          category={state.category}
-          tone={state.tone}
-          targetAudience={state.targetAudience}
-          duration={state.duration}
-          loading={loading.collect}
-          onChange={(patch) => setState((prev) => ({ ...prev, ...patch }))}
-          onCollect={collectNews}
-        />
-        <NewsCandidateGrid candidates={state.candidates} selectedId={state.selectedSourceId} onSelect={selectCandidate} />
-        <SourceList sources={selectedSources} />
-        <div className="twoColumn">
+        <div className="studioGrid" id="workflow">
+          <NewsInputPanel
+            mode={state.mode}
+            keyword={state.keyword}
+            url={state.url}
+            text={state.text}
+            category={state.category}
+            tone={state.tone}
+            targetAudience={state.targetAudience}
+            duration={state.duration}
+            loading={loading.collect}
+            onChange={(patch) => setState((prev) => ({ ...prev, ...patch }))}
+            onCollect={collectNews}
+          />
+          <div className="studioSidebar">
+            <NewsCandidateGrid candidates={state.candidates} selectedId={state.selectedSourceId} loading={loading.collect} onSelect={selectCandidate} />
+            <SourceList sources={selectedSources} />
+          </div>
+        </div>
+        <div className="studioGrid twoColumn">
           <NewsBriefPanel
             brief={state.brief}
             loading={loading.brief}
@@ -321,7 +438,7 @@ export default function Home() {
           />
         </div>
         <SceneTimeline scenes={state.script?.scenes || []} images={state.images} />
-        <div className="twoColumn">
+        <div className="studioGrid twoColumn">
           <ShortsPreview script={state.script} images={state.images} />
           <VideoBuilderPanel
             script={state.script}
@@ -351,7 +468,19 @@ export default function Home() {
           images={state.images}
           video={state.video}
         />
-      </div>
+      </section>
+
+      <section className="sectionBand" id="export">
+        <div className="workflowFooter">
+          <div>
+            <p className="eyebrow">Production</p>
+            <h2>완성본을 내려받거나 업로드하세요</h2>
+          </div>
+          <p className="sectionLead">
+            JSON 패키지, 비디오 다운로드, YouTube 업로드까지 이어지는 마무리 단계만 남겨두었습니다.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

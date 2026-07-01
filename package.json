@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "models:dev": "uvicorn services.local_model_api:app --host 127.0.0.1 --port 8001 --reload",
     "build": "next build",
     "lint": "eslint . --max-warnings=0"
   },
