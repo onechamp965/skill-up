@@ -87,19 +87,29 @@ export async function createSilentAudioUrl(durationSec = 2) {
 }
 
 async function saveImageBuffer(buffer: Buffer, extension: "png" | "jpg") {
-  await mkdir(GENERATED_IMAGE_DIR, { recursive: true });
-  const fileName = `${randomUUID()}.${extension}`;
-  const filePath = path.join(GENERATED_IMAGE_DIR, fileName);
-  await writeFile(filePath, buffer);
-  return `/static/output/uploads/${fileName}`;
+  try {
+    await mkdir(GENERATED_IMAGE_DIR, { recursive: true });
+    const fileName = `${randomUUID()}.${extension}`;
+    const filePath = path.join(GENERATED_IMAGE_DIR, fileName);
+    await writeFile(filePath, buffer);
+    return `/static/output/uploads/${fileName}`;
+  } catch {
+    const mimeType = extension === "jpg" ? "image/jpeg" : "image/png";
+    return `data:${mimeType};base64,${buffer.toString("base64")}`;
+  }
 }
 
 async function saveAudioBuffer(buffer: Buffer, extension: "mp3" | "wav") {
-  await mkdir(GENERATED_AUDIO_DIR, { recursive: true });
-  const fileName = `voice-${Date.now()}-${randomUUID()}.${extension}`;
-  const filePath = path.join(GENERATED_AUDIO_DIR, fileName);
-  await writeFile(filePath, buffer);
-  return `/generated/audio/${fileName}`;
+  try {
+    await mkdir(GENERATED_AUDIO_DIR, { recursive: true });
+    const fileName = `voice-${Date.now()}-${randomUUID()}.${extension}`;
+    const filePath = path.join(GENERATED_AUDIO_DIR, fileName);
+    await writeFile(filePath, buffer);
+    return `/generated/audio/${fileName}`;
+  } catch {
+    const mimeType = extension === "mp3" ? "audio/mpeg" : "audio/wav";
+    return `data:${mimeType};base64,${buffer.toString("base64")}`;
+  }
 }
 
 function buildSilentWav(durationSec: number) {
