@@ -1,4 +1,4 @@
-<img width="1110" height="645" alt="KakaoTalk_Image_2026-07-02-15-01-58_002" src="https://github.com/user-attachments/assets/f66dd71d-6e0c-4234-bdf7-517c1a498b2e" />이름: 채준혁
+이름: 채준혁
 팀명: 자스민티
 내가 맡은 역할: PM 및 컨텐츠 기획
 
