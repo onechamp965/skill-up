@@ -13,6 +13,14 @@
   - 여러 AI모델과 AI활용법을 알았다.
   - Vercel과 zock, lilway등등 여러 배포 사이트를 알았다.
 
+사용한 기술스택
+  - 백엔드와 프론트엔드 일관성을 위한 NEXT.JS사용
+
+사용한 AI모델
+  - TEXT: qwen3:3b
+  - TTS: qwen3 TTS
+  - TEXT: stable diffusion
+
 <img width="1501" height="579" alt="KakaoTalk_Image_2026-07-02-15-01-58_001" src="https://github.com/user-attachments/assets/3e100d46-4dc7-40fd-8e45-2e491696131e" />
 <img width="1110" height="645" alt="KakaoTalk_Image_2026-07-02-15-01-58_002" src="https://github.com/user-attachments/assets/adb35afa-a5b5-4b07-ad69-ceefd1a8bc72" />
 <img width="1075" height="726" alt="KakaoTalk_Image_2026-07-02-15-01-58_003" src="https://github.com/user-attachments/assets/e8ca186f-0416-4648-8bbe-f2d5f2a9b1ed" />
