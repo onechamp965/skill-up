@@ -19,7 +19,7 @@
 사용한 AI모델
   - TEXT: qwen3:3b
   - TTS: qwen3 TTS
-  - TEXT: stable diffusion
+  - IMAGE: stable diffusion
 
 <img width="1501" height="579" alt="KakaoTalk_Image_2026-07-02-15-01-58_001" src="https://github.com/user-attachments/assets/3e100d46-4dc7-40fd-8e45-2e491696131e" />
 <img width="1110" height="645" alt="KakaoTalk_Image_2026-07-02-15-01-58_002" src="https://github.com/user-attachments/assets/adb35afa-a5b5-4b07-ad69-ceefd1a8bc72" />
