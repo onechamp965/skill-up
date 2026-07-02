@@ -1,4 +1,6 @@
 <div align="center">
+  <img src="docs/assets/readme-hero.png" alt="News Shorts Studio hero banner" width="100%" />
+
   <h1>News Shorts Studio</h1>
   <p>
     출처 기반 뉴스 입력을 YouTube Shorts용 브리프, 스크립트, 씬 이미지,
