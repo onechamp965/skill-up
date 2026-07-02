@@ -20,6 +20,7 @@ import type {
   GenerateImagesResponse,
   GenerateNewsBriefResponse,
   GenerateNewsScriptResponse,
+  GeneratedVoice,
   GenerateVoiceResponse,
   NewsCandidate,
   NewsStudioState
@@ -70,7 +71,7 @@ export default function Home() {
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          setState({ ...initialState, ...(JSON.parse(saved) as Partial<NewsStudioState>) });
+          setState(normalizeStoredState(JSON.parse(saved) as Partial<NewsStudioState>));
         }
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
@@ -265,9 +266,15 @@ export default function Home() {
       const voice = payload.voice || payload.audio;
       if (!response.ok) throw new Error(voice?.error || payload.error || "음성 생성 실패");
       if (!voice) throw new Error("음성 생성 응답이 비어 있습니다.");
-      setState((prev) => ({ ...prev, voice, step: voice.status === "success" ? "voice_ready" : "script_ready" }));
-      if (voice.status === "failed") {
-        setError(voice.error || "음성 생성 실패");
+      const singleTrackVoice = normalizeSingleTrackVoice(voice);
+      if (!singleTrackVoice) throw new Error("단일 TTS 응답이 아닙니다. 서버를 새로고침한 뒤 다시 생성해주세요.");
+      setState((prev) => ({
+        ...prev,
+        voice: singleTrackVoice,
+        step: singleTrackVoice.status === "success" ? "voice_ready" : "script_ready"
+      }));
+      if (singleTrackVoice.status === "failed") {
+        setError(singleTrackVoice.error || "음성 생성 실패");
       }
     } catch (event) {
       if (event instanceof DOMException && event.name === "AbortError") return;
@@ -290,7 +297,7 @@ export default function Home() {
       const video = await renderShortsVideo({
         script: state.script,
         images: state.images,
-        audio: state.voice,
+        audio: normalizeSingleTrackVoice(state.voice),
         captions: state.captions
       });
       setState((prev) => ({ ...prev, video, step: "video_ready" }));
@@ -509,13 +516,15 @@ export default function Home() {
 }
 
 function sanitizeForStorage(state: NewsStudioState): NewsStudioState {
+  const voice = normalizeSingleTrackVoice(state.voice);
+
   return {
     ...state,
     images: state.images.map((image) => ({
       ...image,
       image_url: image.image_url?.startsWith("data:") ? undefined : image.image_url
     })),
-    voice: state.voice?.audio_url?.startsWith("data:") ? { ...state.voice, audio_url: undefined } : state.voice,
+    voice: voice?.audio_url?.startsWith("data:") ? { ...voice, audio_url: undefined } : voice,
     video: state.video
       ? {
           ...state.video,
@@ -527,4 +536,21 @@ function sanitizeForStorage(state: NewsStudioState): NewsStudioState {
         }
       : undefined
   };
+}
+
+function normalizeStoredState(saved: Partial<NewsStudioState>): NewsStudioState {
+  const hasLegacySegmentedVoice = Boolean(saved.voice?.segments?.length);
+  const state = { ...initialState, ...saved };
+  return {
+    ...state,
+    voice: normalizeSingleTrackVoice(state.voice),
+    video: hasLegacySegmentedVoice ? undefined : state.video
+  };
+}
+
+function normalizeSingleTrackVoice(voice?: GeneratedVoice) {
+  if (!voice) return undefined;
+  if (voice.segments?.length) return undefined;
+  const { segments: _segments, ...singleTrackVoice } = voice;
+  return singleTrackVoice;
 }
